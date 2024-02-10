@@ -5,3 +5,5 @@ cmake-build-release32
 *.c.bak
 **/*.c.bak
 archive/archive.jar
+__pycache__
+**/__pycache__
