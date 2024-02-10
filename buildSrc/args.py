@@ -79,6 +79,7 @@ class Args:
         print(f"[5] Launch Flags ({'None' if len(self.launch_flags) < 1 else self.launch_flags})")
         print(f"[6] Debug ({'true' if self.debug else 'false'})")
         print(f"[7] Build 32-Bit ({'true' if self.build_i386 else 'false'})")
+        print()
         print("[b] Build")
         print("[x] Exit")
         print()
