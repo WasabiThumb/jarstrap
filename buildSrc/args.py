@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
 import re
+import struct
 
 recognized_c_vars = ["APP_NAME[]", "MIN_JAVA_VERSION", "PREFERRED_JAVA_VERSION", "LAUNCH_FLAGS[]"]
 
@@ -18,6 +19,9 @@ class Args:
 
     def load_defaults(self, code_file):
         in_cfg = False
+        if os.name == 'nt':
+            # TODO: Fix x86 build
+            self.build_i386 = struct.calcsize("P") == 4
         with open(code_file, 'r') as f:
             for line in f.readlines():
                 if in_cfg:

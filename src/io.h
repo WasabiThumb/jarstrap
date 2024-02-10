@@ -15,7 +15,7 @@
 
 #include <windows.h>
 #include <shlobj.h>
-// #include <ntsecapi.h>
+#include <ntsecapi.h>
 
 typedef FILE* io_shell;
 typedef struct io_dir_t {
@@ -68,7 +68,9 @@ bool io_file_exists(const char* path);
 #ifdef WIN32
 void io_path_to_short_name_win32(char** path);
 
-void io_init_console_win32(const char* title);
+HWND io_init_console_win32(const char* title, bool getWindow);
+
+bool io_owns_console_win32();
 #endif
 
 #endif

@@ -140,7 +140,8 @@ int do_cmd(char* cmd) {
 
 int main() {
 #ifdef WIN32
-    io_init_console_win32(APP_NAME);
+    bool owns = io_owns_console_win32();
+    HWND win = io_init_console_win32(APP_NAME, owns);
 #endif
     startup();
 
@@ -157,5 +158,13 @@ int main() {
     free((void*) binary);
     free((void*) archive);
 
+#ifdef WIN32
+    if (owns && win != NULL) {
+        Sleep(200);
+        if (CloseWindow(win) == 0) {
+            ERR_PRINT(ERR_IO);
+        }
+    }
+#endif
     return do_cmd(cmd);
 }

@@ -278,38 +278,48 @@ void io_path_to_short_name_win32(char** path) {
     _freea(buf);
 }
 
-// static const wchar_t UNIQUE_TITLE_SEED[] = L"UniqueConsoleXXXXXXXX";
-void io_init_console_win32(const char* title) {
-    // wchar_t uniqueTitle[sizeof(UNIQUE_TITLE_SEED)];
-    // memcpy(uniqueTitle, UNIQUE_TITLE_SEED, sizeof(UNIQUE_TITLE_SEED));
-    // unsigned char rand[8];
-    // RtlGenRandom((void*) rand, sizeof(unsigned char) * 8);
-    // int z = 7;
-    // for (int i=0; i < sizeof(UNIQUE_TITLE_SEED) - 1; i++) {
-    //     if (uniqueTitle[i] == L'X') {
-    //         uniqueTitle[i] = (wchar_t) ((rand[z--] % 26) + L'A'); // NOLINT(cert-msc50-cpp)
-    //     }
-    // }
+static const wchar_t UNIQUE_TITLE_SEED[] = L"UniqueConsoleXXXXXXXX";
+HWND io_init_console_win32(const char* title, bool getWindow) {
+    HWND win = NULL;
+    if (getWindow) {
+        wchar_t uniqueTitle[sizeof(UNIQUE_TITLE_SEED)];
+        memcpy(uniqueTitle, UNIQUE_TITLE_SEED, sizeof(UNIQUE_TITLE_SEED));
+        unsigned char rand[8];
+        RtlGenRandom((void *) rand, sizeof(unsigned char) * 8);
+        int z = 7;
+        for (int i = 0; i < sizeof(UNIQUE_TITLE_SEED) - 1; i++) {
+            if (uniqueTitle[i] == L'X') {
+                uniqueTitle[i] = (wchar_t) ((rand[z--] % 26) + L'A'); // NOLINT(cert-msc50-cpp)
+            }
+        }
 
-    // SetConsoleTitleW(uniqueTitle);
-    // Sleep((DWORD) 40);
-    // HWND win = FindWindowW(NULL, uniqueTitle);
+        SetConsoleTitleW(uniqueTitle);
+        Sleep((DWORD) 40);
+        win = FindWindowW(NULL, uniqueTitle);
+    }
     SetConsoleTitleA(title);
-
-    // if (win != NULL) {
-    //    printf("Found HWND: %p\n", win);
-    // }
 
     HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
     if (h == NULL) {
         printf("Handle is null\n");
-        return;
+        return win;
     }
 
     DWORD mode;
-    if (GetConsoleMode(h, &mode) == 0) return;
+    if (GetConsoleMode(h, &mode) == 0) return win;
     mode |= (DWORD) ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     mode |= (DWORD) ENABLE_PROCESSED_OUTPUT;
     SetConsoleMode(h, mode);
+
+    return win;
+}
+
+bool io_owns_console_win32() {
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    if (!GetConsoleScreenBufferInfo(GetStdHandle( STD_OUTPUT_HANDLE), &csbi)) {
+        ERR_PRINT(ERR_IO);
+        return false;
+    }
+    return ((!csbi.dwCursorPosition.X) && (!csbi.dwCursorPosition.Y));
 }
 #endif
