@@ -6,6 +6,7 @@
 #include "path.h"
 #include "jre.h"
 #include "util.h"
+#include "debug.h"
 
 #ifdef __linux
 #include <sys/utsname.h>
@@ -127,12 +128,7 @@ const char* jre_locate_at_least0(unsigned int min, char* known, int len) {
 
 #ifdef __linux
 void jre_refine_download_cmd_linux(const char** cmd, size_t* size) {
-    void* ptr = malloc(sizeof(struct utsname));
-    if (ptr == NULL) {
-        fprintf(stderr, "Out of memory (cannot allocate buffer with size %d)\n", (int) sizeof(struct utsname));
-        exit(1);
-    }
-    struct utsname *dat = (struct utsname*) ptr;
+    struct utsname *dat = (struct utsname*) PTR_CHECK(malloc(sizeof(struct utsname)));
     if (uname(dat) != 0) {
         perror("Failed to call uname, distro specific action may not be taken");
         return;
@@ -145,7 +141,7 @@ void jre_refine_download_cmd_linux(const char** cmd, size_t* size) {
     for (int i=0; i < releaseLen; i++) haystack[sysnameLen + 1 + i] = tolower(dat->release[i]); // NOLINT(cert-str34-c)
     haystack[sysnameLen] = ' ';
     haystack[haystackLen - 1] = (char) 0;
-    free(ptr);
+    free(dat);
 
     if (strstr(haystack, "alpine") != NULL) {
         *cmd = JRE_DOWNLOAD_CMD_ALPINE;
@@ -173,16 +169,10 @@ const char* jre_version_get(const char* binary) {
     shell = io_shell_open(exec);
     dealloca(exec);
     if (shell == NULL) {
-        fprintf(stderr, "Failed to run command\n");
-        exit(1);
+        ERR_FATAL(ERR_ILLEGAL);
     }
     int bufSize = 128;
-    void* bufPtr = malloc(bufSize);
-    if (bufPtr == NULL) {
-        fprintf(stderr, "Out of memory (cannot allocate buffer with size %d)\n", bufSize);
-        exit(1);
-    }
-    char* buf = (char*) bufPtr;
+    char* buf = (char*) PTR_CHECK(malloc(bufSize));
     if (io_shell_read_line(shell, buf, bufSize)) {
         int len = (int) strlen(buf);
         int prefixHead = 0;
@@ -220,7 +210,7 @@ const char* jre_version_get(const char* binary) {
             } else {
                 memmove(buf, &buf[start], lowSize * sizeof(char));
             }
-            version = (char*) realloc(bufPtr, lowSize);
+            version = (char*) realloc(buf, lowSize);
         } else {
             free(buf);
         }
@@ -275,11 +265,7 @@ const char* jre_locate_path() {
         fprintf(stderr, "PATH is null\n");
     } else {
         int builderCapacity = 64;
-        char* builder = (char*) allocarray(sizeof(char), builderCapacity);
-        if (builder == NULL) {
-            fprintf(stderr, "Out of memory (cannot allocate buffer with size %d)\n", builderCapacity);
-            exit(1);
-        }
+        char* builder = (char*) PTR_CHECK(allocarray(sizeof(char), builderCapacity));
         int builderPosition = 0;
         int position = 0;
         int lastSegment = 0;
@@ -288,11 +274,7 @@ const char* jre_locate_path() {
         while ((c = path[position++]) != (char) 0) {
             if (builderPosition >= builderCapacity) {
                 builderCapacity <<= 1;
-                builder = (char*) reallocarray(builder, sizeof(char), builderCapacity);
-                if (builder == NULL) {
-                    fprintf(stderr, "Out of memory (cannot allocate buffer with size %d)\n", builderCapacity);
-                    exit(1);
-                }
+                builder = (char*) PTR_CHECK(reallocarray(builder, sizeof(char), builderCapacity));
             }
             if (c == PATH_VAR_SEP) {
                 builder[builderPosition] = (char) 0;
@@ -322,11 +304,7 @@ const char* jre_locate_at_least(unsigned int min) {
         free((void*) path);
     }
 
-    char* known = malloc(sizeof(JRE_KNOWN_LOCATIONS));
-    if (known == NULL) {
-        fprintf(stderr, "Out of memory (cannot allocate buffer with size %d)\n", (int) sizeof(JRE_KNOWN_LOCATIONS));
-        exit(1);
-    }
+    char* known = PTR_CHECK(malloc(sizeof(JRE_KNOWN_LOCATIONS)));
     memcpy(known, JRE_KNOWN_LOCATIONS, sizeof(JRE_KNOWN_LOCATIONS));
     const char* ret = jre_locate_at_least0(min, known, (int) (sizeof(JRE_KNOWN_LOCATIONS) - 1));
     free((void*) known);
@@ -393,32 +371,32 @@ HINTERNET jre_open_msi_download_win32() {
                                  WINHTTP_NO_PROXY_BYPASS,
                                  (DWORD) 0);
     if (http == NULL) {
-        fprintf(stderr, "Error %lu in WinHttpOpen\n", GetLastError());
+        ERR_PRINT(ERR_WWW);
         return NULL;
     }
 
     http = WinHttpConnect(http, JRE_LATEST_MSI_HOST, INTERNET_DEFAULT_HTTPS_PORT, (DWORD) 0);
     if (http == NULL) {
-        fprintf(stderr, "Error %lu in WinHttpConnect\n", GetLastError());
+        ERR_PRINT(ERR_WWW);
         return NULL;
     }
 
     LPCWSTR accepts[2] = { JRE_LATEST_MSI_MIME, NULL };
     http = WinHttpOpenRequest(http, L"GET", JRE_LATEST_MSI_OBJECT, NULL, WINHTTP_NO_REFERER, accepts, WINHTTP_FLAG_SECURE);
     if (http == NULL) {
-        fprintf(stderr, "Error %lu in WinHttpOpenRequest\n", GetLastError());
+        ERR_PRINT(ERR_WWW);
         return NULL;
     }
 
     if (!WinHttpSendRequest(http, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
         WinHttpCloseHandle(http);
-        fprintf(stderr, "Error %lu in WinHttpSendRequest\n", GetLastError());
+        ERR_PRINT(ERR_WWW);
         return NULL;
     }
 
     if (!WinHttpReceiveResponse(http, NULL)) {
         WinHttpCloseHandle(http);
-        fprintf(stderr, "Error %lu in WinHttpReceiveResponse\n", GetLastError());
+        ERR_PRINT(ERR_WWW);
         return NULL;
     }
     return http;
@@ -426,25 +404,21 @@ HINTERNET jre_open_msi_download_win32() {
 
 bool jre_pipe_inet2fp_win32(HINTERNET inet, FILE* fp) {
     const DWORD buf_size = 8192;
-    void* buf = malloc(buf_size);
-    if (buf == NULL) {
-        fprintf(stderr, "Out of memory (allocating buffer with capacity %lu)\n", buf_size);
-        exit(1);
-    }
+    void* buf = PTR_CHECK(malloc(buf_size));
 
     DWORD shovel;
     DWORD downloaded;
     do {
         shovel = 0;
         if (!WinHttpQueryDataAvailable(inet, &shovel)) {
-            fprintf(stderr, "Error %lu in WinHttpQueryDataAvailable\n", GetLastError());
+            ERR_PRINT(ERR_WWW);
             free(buf);
             return false;
         }
         if (shovel > buf_size) shovel = buf_size;
 
         if (!WinHttpReadData(inet, buf, shovel, &downloaded)) {
-            fprintf(stderr, "Error %lu in WinHttpReadData\n", GetLastError());
+            ERR_PRINT(ERR_WWW);
             free(buf);
             return false;
         }

@@ -10,6 +10,7 @@
 #include "src/util.h"
 #include "src/path.h"
 #include "src/ansi.h"
+#include "src/debug.h"
 
 // CONFIG START
 static const char APP_NAME[] = "JARStrap";
@@ -56,11 +57,7 @@ void get_params(const char** outBinary, const char** outArchive, bool exitOnNotF
         if (exitOnNotFound) exit(0);
         printf_dbg("Java >=%d not found, showing install prompt\n", MIN_JAVA_VERSION);
         size_t promptSize = sizeof(INSTALL_PROMPT) + (sizeof(char) * 8);
-        char* prompt = (char*) malloc(promptSize);
-        if (prompt == NULL) {
-            fprintf(stderr, "Out of memory (allocating buffer with capacity %zu)\n", promptSize);
-            exit(1);
-        }
+        char* prompt = PTR_CHECK((char*) malloc(promptSize));
         snprintf(prompt, promptSize - 1, INSTALL_PROMPT, MIN_JAVA_VERSION);
         bool dl = io_gui_question(APP_NAME, prompt);
         free(prompt);
@@ -101,8 +98,7 @@ void get_params(const char** outBinary, const char** outArchive, bool exitOnNotF
     strcpy(&fName[sizeof(APP_NAME) + 8], JAR_EXT);
     char* appDir = (char*) io_get_app_dir();
     if (appDir == NULL) {
-        fprintf(stderr, "Failed to create app dir\n");
-        exit(1);
+        ERR_FATAL(ERR_IO);
     }
     io_dir appDirEnt = io_dir_open(appDir);
     if (appDirEnt != NULL) {
@@ -156,11 +152,7 @@ int main() {
 #endif
 
     size_t cmdLen = strlen(binary) + strlen(archive) + sizeof(LAUNCH_FLAGS) + sizeof(START_FMT);
-    char* cmd = malloc(cmdLen);
-    if (cmd == NULL) {
-        fprintf(stderr, "Out of memory (allocating buffer with capacity %zu)\n", cmdLen);
-        exit(1);
-    }
+    char* cmd = PTR_CHECK(malloc(cmdLen));
     snprintf(cmd, cmdLen, START_FMT, binary, archive, LAUNCH_FLAGS);
     free((void*) binary);
     free((void*) archive);

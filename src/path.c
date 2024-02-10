@@ -1,9 +1,9 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
 #include <string.h>
 #include <stdbool.h>
 #include "path.h"
+#include "debug.h"
 
 
 bool path_digest(char *output, size_t *cursor, const size_t *capacity, const char* input, bool leadWithSep) {
@@ -14,8 +14,7 @@ bool path_digest(char *output, size_t *cursor, const size_t *capacity, const cha
     bool any = false;
     while ((c = input[i++]) != PATH_NULL) {
         if (*cursor >= *capacity) {
-            fprintf(stderr, "Unexpected error (cursor %zu exceeds buffer size %zu)\n", *cursor, *capacity);
-            exit(1);
+            ERR_FATAL(ERR_OVERFLOW);
         }
         if (insertSep) {
             output[(*cursor)++] = PATH_SEPARATOR;
@@ -77,12 +76,7 @@ const char* path_join(const char* restrict a, const char* restrict b) {
     if (bl == 0) return strdup(a);
 
     size_t capacity = al + bl + 4;
-    void* buf = malloc(capacity);
-    if (buf == NULL) {
-        fprintf(stderr, "Out of memory (allocating path join buffer with capacity %zu)\n", capacity);
-        exit(1);
-    }
-    char* ret = (char*) buf;
+    char* ret = (char*) PTR_CHECK(malloc(capacity));
     size_t cursor = 0;
 
     bool lead = false;

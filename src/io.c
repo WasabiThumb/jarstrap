@@ -4,6 +4,7 @@
 #include "io.h"
 #include "path.h"
 #include "alloca.h"
+#include "debug.h"
 
 io_shell io_shell_open(const char* cmd) {
     return (io_shell) popen(cmd, "r");
@@ -24,14 +25,9 @@ io_dir io_dir_open(const char* path) {
 #ifdef WIN32
     size_t len = strlen(path);
     if (len + 2 >= MAX_PATH) {
-        fprintf(stderr, "Path (%s\\*) is larger than max path size (%zu)", path, MAX_PATH);
-        exit(1);
+        ERR_FATAL(ERR_ILLEGAL);
     }
-    io_dir dir = (io_dir) malloc(sizeof(io_dir_t));
-    if (dir == NULL) {
-        fprintf(stderr, "Out of memory (allocating buffer with capacity %zu)\n", sizeof(io_dir_t));
-        exit(1);
-    }
+    io_dir dir = (io_dir) PTR_CHECK(malloc(sizeof(io_dir_t)));
     memcpy(dir->path, path, len); // NOLINT(bugprone-not-null-terminated-result)
     dir->path[len] = '\\';
     dir->path[len + 1] = '*';
@@ -59,8 +55,7 @@ const char* io_dir_read_win32(volatile io_dir dir, DWORD attr) {
     }
     DWORD err = GetLastError();
     if (err != ERROR_NO_MORE_FILES) {
-        fprintf(stderr, "Failed to read dirent %s (code %lu)\n", dir->path, err);
-        exit(1);
+        ERR_FATAL(ERR_IO);
     }
     FindClose(dir->handle);
     dir->handle = INVALID_HANDLE_VALUE;
@@ -156,13 +151,8 @@ bool io_gui_question_zenity(const char* title, const char* question) {
     size_t titleLen = strlen(title);
     size_t questionLen = strlen(question);
     size_t size = sizeof(ZENITY_CMD_A) + sizeof(ZENITY_CMD_B) + titleLen + questionLen;
-    void* ptr = malloc(size);
-    if (ptr == NULL) {
-        fprintf(stderr, "Out of memory (allocating buffer with capacity %zu)\n", size);
-        exit(1);
-    }
 
-    char* cmd = (char*) ptr;
+    char* cmd = (char*) PTR_CHECK(malloc(size));
     strcpy(cmd, ZENITY_CMD_A);
     strcpy(&cmd[sizeof(ZENITY_CMD_A) - 1], title);
     strcpy(&cmd[sizeof(ZENITY_CMD_A) - 1 + titleLen], ZENITY_CMD_B);
@@ -171,7 +161,7 @@ bool io_gui_question_zenity(const char* title, const char* question) {
     cmd[size - 1] = (char) 0;
 
     FILE *fp = popen(cmd, "r");
-    free(ptr);
+    free(cmd);
     if (fp == NULL) {
         perror("Failed to launch zenity");
         return false;
@@ -186,8 +176,7 @@ bool io_gui_question_win32(const char* title, const char* question) {
     int v = MessageBoxA(NULL, (LPCTSTR) question, (LPCTSTR) title, (UINT) MB_YESNO | (UINT) MB_ICONINFORMATION);
     switch (v) {
         case 0:
-            fprintf(stderr, "Failed to show message box (error code %lu)\n", GetLastError());
-            exit(1);
+            ERR_FATAL(ERR_ILLEGAL);
         case IDYES:
             return true;
         case IDNO:
@@ -235,8 +224,7 @@ const char* io_get_app_dir_unix() {
 const char* io_get_app_dir_win32() {
     TCHAR path[MAX_PATH];
     if (!SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_COMMON_APPDATA, NULL, SHGFP_TYPE_CURRENT, path))) {
-        fprintf(stderr, "Failed to get common appdata path\n");
-        exit(1);
+        ERR_FATAL(ERR_IO);
     }
 
     const char* full = path_join((const char*) path, "Wasabi Codes\\JARStrap");
@@ -262,8 +250,7 @@ const char* io_get_app_dir() {
 void io_file_put_buffer(const char* path, void* buf, size_t len) {
     FILE* fd = fopen(path, "wb");
     if (fd == NULL) {
-        perror("Failed to write buffer to file");
-        exit(1);
+        ERR_FATAL(ERR_IO);
     }
     fwrite(buf, 1, len, fd);
     fclose(fd);
@@ -280,7 +267,7 @@ void io_path_to_short_name_win32(char** path) {
 
     char* buf = (char*) _malloca(len + 1);
     if (GetShortPathNameA((LPCSTR) *path, (LPSTR) buf, len) == 0) {
-        fprintf(stderr, "Failed to get short name for path (%s): code %lu", *path, GetLastError());
+        ERR_PRINT(ERR_UNKNOWN);
         _freea(buf);
         return;
     }
