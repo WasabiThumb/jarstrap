@@ -60,6 +60,7 @@ char* jre_locate_at_least000(char* head, int depth) {
 
         const char* sub;
         while ((sub = io_dir_read_directory(dir)) != NULL) {
+            printf("sub sub: %s\n", sub);
             ret = jre_locate_at_least000((char*) path_join(head, sub), depth);
             if (ret != NULL) {
                 io_dir_close(dir);
@@ -84,6 +85,7 @@ const char* jre_locate_at_least00(unsigned int min, char* known) {
     while ((sub = io_dir_read_directory(dir)) != NULL) {
         if (sub[0] == '.') continue;
         char* exec = jre_locate_at_least000((char*) path_join(known, sub), 3);
+        if (exec == NULL) continue;
         size_t orig = strlen(exec);
         exec = (char*) realloc(exec, orig + 1 + sizeof(JRE_EXEC));
         exec[orig] = PATH_SEPARATOR;

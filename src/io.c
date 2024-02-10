@@ -22,8 +22,9 @@ io_dir io_dir_open(const char* path) {
     return (io_dir) opendir(path);
 #endif
 #ifdef WIN32
-    if (strlen(path) >= MAX_PATH) {
-        fprintf(stderr, "Path (%s) is larger than max path size (%zu)", path, strlen(path));
+    size_t len = strlen(path);
+    if (len + 2 >= MAX_PATH) {
+        fprintf(stderr, "Path (%s\\*) is larger than max path size (%zu)", path, MAX_PATH);
         exit(1);
     }
     io_dir dir = (io_dir) malloc(sizeof(io_dir_t));
@@ -31,7 +32,10 @@ io_dir io_dir_open(const char* path) {
         fprintf(stderr, "Out of memory (allocating buffer with capacity %zu)\n", sizeof(io_dir_t));
         exit(1);
     }
-    strcpy(dir->path, path);
+    memcpy(dir->path, path, len); // NOLINT(bugprone-not-null-terminated-result)
+    dir->path[len] = '\\';
+    dir->path[len + 1] = '*';
+    dir->path[len + 2] = (char) 0;
     dir->handle = FindFirstFileA(dir->path, &dir->findData);
     dir->useCurrentData = TRUE;
     dir->done = (char) (INVALID_HANDLE_VALUE == dir->handle);
@@ -40,7 +44,7 @@ io_dir io_dir_open(const char* path) {
 }
 
 #ifdef WIN32
-const char* io_dir_read_win32(io_dir dir, DWORD attr) {
+const char* io_dir_read_win32(volatile io_dir dir, DWORD attr) {
     if (dir->done) return NULL;
     if (dir->useCurrentData) {
         dir->useCurrentData = FALSE;
@@ -58,6 +62,8 @@ const char* io_dir_read_win32(io_dir dir, DWORD attr) {
         fprintf(stderr, "Failed to read dirent %s (code %lu)\n", dir->path, err);
         exit(1);
     }
+    FindClose(dir->handle);
+    dir->handle = INVALID_HANDLE_VALUE;
     return NULL;
 }
 #endif
