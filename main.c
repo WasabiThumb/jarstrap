@@ -15,7 +15,7 @@
 static const char APP_NAME[] = "JARStrap";
 static const unsigned int MIN_JAVA_VERSION = 8;
 static const unsigned int PREFERRED_JAVA_VERSION = 17;
-static const char INSTALL_PROMPT[] = "This application requires Java %d or greater, which could not be found. Install now? You may need to restart afterwards, and the download may take a few moments.";
+static const char INSTALL_PROMPT[] = "This application requires Java %d or greater, which could not be found. Install now? The download may take a few moments.";
 static const char LAUNCH_FLAGS[] = "";
 // CONFIG END
 

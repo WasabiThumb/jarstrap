@@ -30,7 +30,7 @@ static const char JRE_DOWNLOAD_CMD_ARCH[] = "xdg-open \"https://archlinux.org/pa
 #ifdef WIN32
 static const char JRE_EXEC[] = "java.exe";
 static const char JRE_ARG_VERSION[] = " -version 2>&1";
-static const char JRE_KNOWN_LOCATIONS[] = "C:\\Program Files\\Java:C:\\Program Files (x86)\\Java";
+static const char JRE_KNOWN_LOCATIONS[] = "C:\\Program Files\\Eclipse Adoptium;C:\\Program Files\\Java;C:\\Program Files (x86)\\Eclipse Adoptium;C:\\Program Files (x86)\\Java";
 static const char JRE_DOWNLOAD_CMD[] = "https://adoptium.net/temurin/releases/?package=jre&os=windows&version=";
 static const wchar_t JRE_LATEST_MSI_HOST[] = L"github.com";
 static const wchar_t JRE_LATEST_MSI_OBJECT[] = L"/adoptium/temurin21-binaries/releases/download/jdk-21.0.2%2B13/OpenJDK21U-jre_x64_windows_hotspot_21.0.2_13.msi";
@@ -109,7 +109,7 @@ const char* jre_locate_at_least0(unsigned int min, char* known, int len) {
     char* next = NULL;
     int nextLen = 0;
     for (int i=0; i < len; i++) {
-        if (known[i] == ':') {
+        if (known[i] == ';') {
             known[i] = (char) 0;
             i++;
             next = &known[i];
