@@ -15,13 +15,25 @@ for Windows & Linux ``x86/64``.
   - Sets the terminal title to the name of the app
 
 ## Usage
-It's possible to build executables with this tool manually, but I
+It's possible to build executables with this tool [manually](#manual-usage), but I
 suggest using the Python CLI. Make sure you have Python 3 installed
 and run ``python build.py`` or ``python3 build.py``.
 
 The Python CLI will try to find CMake on your system, as well as
 ``make`` if on Linux or ``mingw32-make`` if on Windows. For MinGW
 specifically, see [here](#build-deps-win-mingw).
+
+### Manual Usage
+The responsibilities of the build script are to place the archive to be
+wrapped into ``archive/archive.jar``, and run ``cmake`` with the ``MinGW Makefiles``
+or ``Unix Makefiles`` generator setting ``CMAKE_BUILD_TYPE`` and ``CMAKE_C_FLAGS`` appropriately in:
+- ``cmake-build-release``
+- ``cmake-build-release32``
+- ``cmake-build-debug``
+- ``cmake-build-debug32``
+
+followed by ``make``, ``mingw32-make``, or whatever build tool is appropriate. At that point,
+a binary named ``jarstrap``/``jarstrap.exe`` is produced for each target.
 
 ## Build Dependencies
 ### Linux
@@ -61,3 +73,8 @@ If you so choose, look for a download labeled ``release-win32``, and then ``x86_
 the directory containing ``mingw32-make`` to PATH. If you are confused on how to do this,
 [this article](https://www.howtogeek.com/118594/how-to-edit-your-system-path-for-easy-command-line-access/) sums it up
 well enough.
+
+## Roadmap
+- Add automated modes to the CLI to easily embed JARStrap into other build tools
+- Maven/Gradle plugin
+- Optimize for memory

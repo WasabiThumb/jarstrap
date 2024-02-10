@@ -27,8 +27,6 @@ class MakeHandler:
         Path(self.dir).mkdir(exist_ok=True)
         self.make_type = make_type
         self.make_arch = make_arch
-        # -DCMAKE_BUILD_TYPE=Release
-        # -DCMAKE_C_FLAGS="-m32"
 
     def cmake_generate(self) -> bool:
         if os.name == 'nt':
