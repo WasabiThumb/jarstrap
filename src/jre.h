@@ -13,4 +13,6 @@ const char* jre_locate_at_least(unsigned int min);
 
 void jre_open_download_page(unsigned int version);
 
+bool jre_attempt_automated_install(unsigned int min);
+
 #endif

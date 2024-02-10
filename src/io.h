@@ -13,8 +13,19 @@
 #include <stdio.h>
 #define popen _popen
 
+#include <windows.h>
+#include <shlobj.h>
+// #include <ntsecapi.h>
+
 typedef FILE* io_shell;
-typedef DIR* io_dir;
+typedef struct io_dir_t {
+    TCHAR path[MAX_PATH];
+    WIN32_FIND_DATA findData;
+    HANDLE handle;
+    char done;
+    char useCurrentData;
+} io_dir_t;
+typedef io_dir_t* io_dir;
 
 #endif
 #ifdef __linux
@@ -53,5 +64,11 @@ const char* io_get_app_dir();
 void io_file_put_buffer(const char* path, void* buf, size_t len);
 
 bool io_file_exists(const char* path);
+
+#ifdef WIN32
+void io_path_to_short_name_win32(char** path);
+
+void io_init_console_win32(const char* title);
+#endif
 
 #endif

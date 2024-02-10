@@ -18,23 +18,75 @@ void io_shell_close(io_shell shell) {
 }
 
 io_dir io_dir_open(const char* path) {
+#ifdef __linux
     return (io_dir) opendir(path);
+#endif
+#ifdef WIN32
+    if (strlen(path) >= MAX_PATH) {
+        fprintf(stderr, "Path (%s) is larger than max path size (%zu)", path, strlen(path));
+        exit(1);
+    }
+    io_dir dir = (io_dir) malloc(sizeof(io_dir_t));
+    if (dir == NULL) {
+        fprintf(stderr, "Out of memory (allocating buffer with capacity %zu)\n", sizeof(io_dir_t));
+        exit(1);
+    }
+    strcpy(dir->path, path);
+    dir->handle = FindFirstFileA(dir->path, &dir->findData);
+    dir->useCurrentData = TRUE;
+    dir->done = (char) (INVALID_HANDLE_VALUE == dir->handle);
+    return dir;
+#endif
 }
 
-const char* io_dir_read_directory(io_dir dir) {
-    struct dirent* ent;
-    while ((ent = readdir((DIR*) dir)) != NULL) {
-        if (ent->d_type == DT_DIR || ent->d_type == DT_UNKNOWN) return ent->d_name;
+#ifdef WIN32
+const char* io_dir_read_win32(io_dir dir, DWORD attr) {
+    if (dir->done) return NULL;
+    if (dir->useCurrentData) {
+        dir->useCurrentData = FALSE;
+        if (dir->findData.dwFileAttributes & attr) {
+            return dir->findData.cFileName;
+        }
+    }
+
+    WIN32_FIND_DATA fd;
+    while (FindNextFileA(dir->handle, &dir->findData) != 0) {
+        if (fd.dwFileAttributes & attr) return dir->findData.cFileName;
+    }
+    DWORD err = GetLastError();
+    if (err != ERROR_NO_MORE_FILES) {
+        fprintf(stderr, "Failed to read dirent %s (code %lu)\n", dir->path, err);
+        exit(1);
     }
     return NULL;
 }
+#endif
+
+const char* io_dir_read_directory(io_dir dir) {
+#ifdef __linux
+    struct dirent* ent;
+    while ((ent = readdir((DIR*) dir)) != NULL) {
+        ent->d_ino
+        if (ent->d_type == DT_DIR || ent->d_type == DT_UNKNOWN) return ent->d_name;
+    }
+    return NULL;
+#endif
+#ifdef WIN32
+    return io_dir_read_win32(dir, FILE_ATTRIBUTE_DIRECTORY);
+#endif
+}
 
 const char* io_dir_read_file(io_dir dir) {
+#ifdef __linux
     struct dirent* ent;
     while ((ent = readdir((DIR*) dir)) != NULL) {
         if (ent->d_type == DT_REG || ent->d_type == DT_UNKNOWN) return ent->d_name;
     }
     return NULL;
+#endif
+#ifdef WIN32
+    return io_dir_read_win32(dir, FILE_ATTRIBUTE_NORMAL);
+#endif
 }
 
 static const char DEL_FAIL[] = "Failed to delete file ";
@@ -82,14 +134,19 @@ void io_dir_delete_children_starting_with_not_equal(io_dir dir, const char* rest
 }
 
 void io_dir_close(io_dir dir) {
+#ifdef __linux
     closedir((DIR*) dir);
+#endif
+#ifdef WIN32
+    if (INVALID_HANDLE_VALUE != dir->handle) FindClose(dir->handle);
+    free((void*) dir);
+#endif
 }
 
 #ifdef __linux
 static const char ZENITY_CMD_A[] = "zenity --question --title '";
 static const char ZENITY_CMD_B[] = "' --text '";
-#endif
-bool io_gui_question(const char* title, const char* question) {
+bool io_gui_question_zenity(const char* title, const char* question) {
     size_t titleLen = strlen(title);
     size_t questionLen = strlen(question);
     size_t size = sizeof(ZENITY_CMD_A) + sizeof(ZENITY_CMD_B) + titleLen + questionLen;
@@ -116,8 +173,37 @@ bool io_gui_question(const char* title, const char* question) {
 
     return WEXITSTATUS(pclose(fp)) == 0;
 }
+#endif
 
-const char* io_get_app_dir() {
+#ifdef WIN32
+bool io_gui_question_win32(const char* title, const char* question) {
+    int v = MessageBoxA(NULL, (LPCTSTR) question, (LPCTSTR) title, (UINT) MB_YESNO | (UINT) MB_ICONINFORMATION);
+    switch (v) {
+        case 0:
+            fprintf(stderr, "Failed to show message box (error code %lu)\n", GetLastError());
+            exit(1);
+        case IDYES:
+            return true;
+        case IDNO:
+            return false;
+        default:
+            fprintf(stderr, "Unknown message box result code %d\n", v);
+            exit(1);
+    }
+}
+#endif
+
+bool io_gui_question(const char* title, const char* question) {
+#ifdef __linux
+    return io_gui_question_zenity(title, question);
+#endif
+#ifdef WIN32
+    return io_gui_question_win32(title, question);
+#endif
+}
+
+#ifdef __linux
+const char* io_get_app_dir_unix() {
     struct passwd* pw = getpwuid(getuid());
     if (pw->pw_dir == NULL) return NULL;
 
@@ -137,6 +223,35 @@ const char* io_get_app_dir() {
     free((void*) dir);
     return NULL;
 }
+#endif
+
+#ifdef WIN32
+const char* io_get_app_dir_win32() {
+    TCHAR path[MAX_PATH];
+    if (!SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_COMMON_APPDATA, NULL, SHGFP_TYPE_CURRENT, path))) {
+        fprintf(stderr, "Failed to get common appdata path\n");
+        exit(1);
+    }
+
+    const char* full = path_join((const char*) path, "Wasabi Codes\\JARStrap");
+    if (full == NULL) return NULL;
+
+    DWORD attrib = GetFileAttributes(full);
+    if (attrib != (DWORD) INVALID_FILE_ATTRIBUTES && (attrib & (DWORD) FILE_ATTRIBUTE_DIRECTORY)) return full;
+    if (SHCreateDirectoryExA(NULL, (LPCTSTR) full, NULL) == ERROR_SUCCESS) return full;
+    free((void*) full);
+    return NULL;
+}
+#endif
+
+const char* io_get_app_dir() {
+#ifdef __linux
+    return io_get_app_dir_unix();
+#endif
+#ifdef WIN32
+    return io_get_app_dir_win32();
+#endif
+}
 
 void io_file_put_buffer(const char* path, void* buf, size_t len) {
     FILE* fd = fopen(path, "wb");
@@ -151,3 +266,57 @@ void io_file_put_buffer(const char* path, void* buf, size_t len) {
 bool io_file_exists(const char* path) {
     return access(path, F_OK) == 0;
 }
+
+#ifdef WIN32
+void io_path_to_short_name_win32(char** path) {
+    if (path == NULL) return;
+    DWORD len = (size_t) GetShortPathNameA((LPCSTR) *path, NULL, 0);
+
+    char* buf = (char*) _malloca(len + 1);
+    if (GetShortPathNameA((LPCSTR) *path, (LPSTR) buf, len) == 0) {
+        fprintf(stderr, "Failed to get short name for path (%s): code %lu", *path, GetLastError());
+        _freea(buf);
+        return;
+    }
+    buf[len] = (char) 0;
+
+    *path = (char*) realloc(*path, len + 1);
+    strcpy(*path, buf);
+    _freea(buf);
+}
+
+// static const wchar_t UNIQUE_TITLE_SEED[] = L"UniqueConsoleXXXXXXXX";
+void io_init_console_win32(const char* title) {
+    // wchar_t uniqueTitle[sizeof(UNIQUE_TITLE_SEED)];
+    // memcpy(uniqueTitle, UNIQUE_TITLE_SEED, sizeof(UNIQUE_TITLE_SEED));
+    // unsigned char rand[8];
+    // RtlGenRandom((void*) rand, sizeof(unsigned char) * 8);
+    // int z = 7;
+    // for (int i=0; i < sizeof(UNIQUE_TITLE_SEED) - 1; i++) {
+    //     if (uniqueTitle[i] == L'X') {
+    //         uniqueTitle[i] = (wchar_t) ((rand[z--] % 26) + L'A'); // NOLINT(cert-msc50-cpp)
+    //     }
+    // }
+
+    // SetConsoleTitleW(uniqueTitle);
+    // Sleep((DWORD) 40);
+    // HWND win = FindWindowW(NULL, uniqueTitle);
+    SetConsoleTitleA(title);
+
+    // if (win != NULL) {
+    //    printf("Found HWND: %p\n", win);
+    // }
+
+    HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (h == NULL) {
+        printf("Handle is null\n");
+        return;
+    }
+
+    DWORD mode;
+    if (GetConsoleMode(h, &mode) == 0) return;
+    mode |= (DWORD) ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    mode |= (DWORD) ENABLE_PROCESSED_OUTPUT;
+    SetConsoleMode(h, mode);
+}
+#endif

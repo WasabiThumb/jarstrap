@@ -9,18 +9,25 @@
 #include "src/archive.h"
 #include "src/util.h"
 #include "src/path.h"
+#include "src/ansi.h"
 
 // CONFIG START
 static const char APP_NAME[] = "JARStrap";
 static const unsigned int MIN_JAVA_VERSION = 8;
 static const unsigned int PREFERRED_JAVA_VERSION = 17;
-static const char INSTALL_PROMPT[] = "This application requires Java %d or greater, which could not be found. Install now?";
+static const char INSTALL_PROMPT[] = "This application requires Java %d or greater, which could not be found. Install now? You may need to restart afterwards, and the download may take a few moments.";
 static const char LAUNCH_FLAGS[] = "";
 // CONFIG END
 
 static const char RUN_DELIMITER[] = "@==============@";
 static const char JAR_EXT[] = ".jar";
+#ifdef WIN32
+static const char START_FMT[] = "%s -jar \"%s\" %s";
+#endif
+#ifdef __linux
 static const char START_FMT[] = "\"%s\" -jar \"%s\" %s";
+#endif
+
 #ifdef NDEBUG
 #pragma ide diagnostic ignored "EmptyDeclOrStmt"
 #define printf_dbg(ignored, ...)
@@ -32,20 +39,21 @@ static const char START_FMT[] = "\"%s\" -jar \"%s\" %s";
 void startup() {
     bool nameGiven = util_fast_hash((const unsigned char*) APP_NAME, sizeof(APP_NAME)) != -1640289140; // Check if app name is not JARStrap
 
-    printf("JARStrap %s (%d-bit)\n", version_get(), (int) (sizeof(void*) << 3));
-    printf("A Java Archive to executable tool\n");
-    printf("(c) Wasabi Codes %s\n", version_get_copyright_year());
-    printf("https://wasabithumb.github.io/\n\n");
+    printf(BLK CYNB " JARStrap %s (%d-bit) " CRESET "\n", version_get(), (int) (sizeof(void*) << 3));
+    printf(CYN "A Java Archive to executable tool\n" CRESET);
+    printf(BCYN "(c)" CYN " Wasabi Codes %s\n" CRESET, version_get_copyright_year());
+    printf(CYN "https://wasabithumb.github.io/\n\n" CRESET);
 
     if (nameGiven) printf("Application Name :: %s\n", APP_NAME);
     printf_dbg("Minimum Java Version :: %d\n", MIN_JAVA_VERSION);
     printf_dbg("Preferred Java Version :: %d\n\n", PREFERRED_JAVA_VERSION);
 }
 
-void get_params(const char** outBinary, const char** outArchive) {
+void get_params(const char** outBinary, const char** outArchive, bool exitOnNotFound) {
     printf_dbg("Locating system installed Java...\n");
     const char* binary = jre_locate_at_least(MIN_JAVA_VERSION);
     if (binary == NULL) {
+        if (exitOnNotFound) exit(0);
         printf_dbg("Java >=%d not found, showing install prompt\n", MIN_JAVA_VERSION);
         size_t promptSize = sizeof(INSTALL_PROMPT) + (sizeof(char) * 8);
         char* prompt = (char*) malloc(promptSize);
@@ -57,6 +65,11 @@ void get_params(const char** outBinary, const char** outArchive) {
         bool dl = io_gui_question(APP_NAME, prompt);
         free(prompt);
         if (dl) {
+            if (jre_attempt_automated_install(MIN_JAVA_VERSION)) {
+                get_params(outBinary, outArchive, true);
+                return;
+            }
+            printf("Automated Java install not available, opening download page in browser\n");
             jre_open_download_page(PREFERRED_JAVA_VERSION);
         } else {
             printf_dbg("Prompt refused\n");
@@ -113,26 +126,34 @@ void get_params(const char** outBinary, const char** outArchive) {
 }
 
 int do_cmd(char* cmd) {
-    printf("%s\n%s\n\n", cmd, RUN_DELIMITER);
+    printf(GRN "%s\n" BGRN "%s\n\n" CRESET, cmd, RUN_DELIMITER);
     int stat = system(cmd);
     free(cmd);
-    printf("\n%s\n", RUN_DELIMITER);
+    printf(BGRN "\n%s\n" CRESET, RUN_DELIMITER);
 
     if (stat == -1) {
         perror("Error when trying to run command");
         exit(1);
     }
+#ifdef __linux
     stat = WEXITSTATUS(stat);
-    printf("Java process finished with exit code %d\n", stat);
+#endif
+    printf("%sJava process finished with exit code %d\n" CRESET, stat == 0 ? YEL : RED, stat);
     return stat;
 }
 
 int main() {
+#ifdef WIN32
+    io_init_console_win32(APP_NAME);
+#endif
     startup();
 
     const char* binary;
     const char* archive;
-    get_params(&binary, &archive);
+    get_params(&binary, &archive, false);
+#ifdef WIN32
+    io_path_to_short_name_win32((char**) &binary);
+#endif
 
     size_t cmdLen = strlen(binary) + strlen(archive) + sizeof(LAUNCH_FLAGS) + sizeof(START_FMT);
     char* cmd = malloc(cmdLen);

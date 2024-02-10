@@ -5,10 +5,16 @@
 #include "alloca.h"
 #include "path.h"
 #include "jre.h"
+#include "util.h"
 
 #ifdef __linux
 #include <sys/utsname.h>
 #include <ctype.h>
+#endif
+#ifdef WIN32
+#include <windows.h>
+#include <versionhelpers.h>
+#include <winhttp.h>
 #endif
 
 // CONSTANTS
@@ -19,12 +25,16 @@ static const char JRE_KNOWN_LOCATIONS[] = "/usr/lib/jvm";
 static const char JRE_DOWNLOAD_CMD[] = "xdg-open \"https://adoptium.net/temurin/releases/?package=jre&os=linux&version=";
 static const char JRE_DOWNLOAD_CMD_ALPINE[] = "xdg-open \"https://adoptium.net/temurin/releases/?package=jre&os=alpine-linux&version=";
 static const char JRE_DOWNLOAD_CMD_ARCH[] = "xdg-open \"https://archlinux.org/packages/?sort=&q=java-runtime-openjdk%3D";
+#define JRE_DOWNLOAD_CMD_ESCAPE
 #endif
 #ifdef WIN32
 static const char JRE_EXEC[] = "java.exe";
-static const char JRE_ARG_VERSION[] = " -version";
+static const char JRE_ARG_VERSION[] = " -version 2>&1";
 static const char JRE_KNOWN_LOCATIONS[] = "C:\\Program Files\\Java:C:\\Program Files (x86)\\Java";
-static const char JRE_DOWNLOAD_CMD[] = "start \"https://adoptium.net/temurin/releases/?package=jre&os=windows&version=";
+static const char JRE_DOWNLOAD_CMD[] = "https://adoptium.net/temurin/releases/?package=jre&os=windows&version=";
+static const wchar_t JRE_LATEST_MSI_HOST[] = L"github.com";
+static const wchar_t JRE_LATEST_MSI_OBJECT[] = L"/adoptium/temurin21-binaries/releases/download/jdk-21.0.2%2B13/OpenJDK21U-jre_x64_windows_hotspot_21.0.2_13.msi";
+static const wchar_t JRE_LATEST_MSI_MIME[] = L"application/x-ms-installer";
 #endif
 static const char JRE_ARG_VERSION_PREFIX[] = "version \"";
 
@@ -150,9 +160,11 @@ void jre_refine_download_cmd_linux(const char** cmd, size_t* size) {
 // API
 const char* jre_version_get(const char* binary) {
     size_t binary_len = strlen(binary);
-    char* exec = alloca(binary_len + sizeof(JRE_ARG_VERSION) + 1);
-    strcpy(exec, binary);
-    strcpy(&exec[binary_len], JRE_ARG_VERSION);
+    char* exec = alloca(binary_len + sizeof(JRE_ARG_VERSION) + 3);
+    exec[0] = '"';
+    strcpy(&exec[1], binary);
+    exec[binary_len + 1] = '"';
+    strcpy(&exec[binary_len + 2], JRE_ARG_VERSION);
 
     char* version = NULL;
 
@@ -250,13 +262,19 @@ bool jre_version_at_least(const char* version, unsigned int min) {
 }
 
 #define INT_RV(v) const char* ret = path_join((v), JRE_EXEC); if (access(ret, F_OK) == 0) { free(builder); return ret; } free((void*) ret)
+#ifdef __linux
+#define PATH_VAR_SEP ':'
+#endif
+#ifdef WIN32
+#define PATH_VAR_SEP ';'
+#endif
 const char* jre_locate_path() {
     char* path = getenv("PATH");
     if (path == NULL) {
         fprintf(stderr, "PATH is null\n");
     } else {
         int builderCapacity = 64;
-        char* builder = (char*) calloc(sizeof(char), builderCapacity);
+        char* builder = (char*) allocarray(sizeof(char), builderCapacity);
         if (builder == NULL) {
             fprintf(stderr, "Out of memory (cannot allocate buffer with size %d)\n", builderCapacity);
             exit(1);
@@ -275,7 +293,7 @@ const char* jre_locate_path() {
                     exit(1);
                 }
             }
-            if (c == ':' || c == ';') {
+            if (c == PATH_VAR_SEP) {
                 builder[builderPosition] = (char) 0;
                 INT_RV(builder);
                 builderPosition = 0;
@@ -336,7 +354,11 @@ void jre_open_download_page(unsigned int version) {
     jre_refine_download_cmd_linux(&baseCmd, &baseCmdSize);
 #endif
 
+#ifdef JRE_DOWNLOAD_CMD_ESCAPE
     size_t size = baseCmdSize + twoDigit + 2;
+#else
+    size_t size = baseCmdSize + twoDigit + 1;
+#endif
     void* ptr = alloca(size);
 
     char* cmd = (char*) ptr;
@@ -349,10 +371,145 @@ void jre_open_download_page(unsigned int version) {
         cmd[baseCmdSize - 1] = '8';
     }
 
+#ifdef JRE_DOWNLOAD_CMD_ESCAPE
     cmd[size - 2] = '\"';
+#endif
     cmd[size - 1] = (char) 0;
 
+#ifdef WIN32
+    ShellExecute(NULL, "open", cmd, NULL, NULL, SW_SHOWNORMAL);
+#else
     system(cmd);
+#endif
     dealloca(ptr);
 }
 
+#ifdef WIN32
+HINTERNET jre_open_msi_download_win32() {
+    HINTERNET http = WinHttpOpen(L"JARStrap",
+                                 IsWindows8Point1OrGreater() ? WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY : WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+                                 WINHTTP_NO_PROXY_NAME,
+                                 WINHTTP_NO_PROXY_BYPASS,
+                                 (DWORD) 0);
+    if (http == NULL) {
+        fprintf(stderr, "Error %lu in WinHttpOpen\n", GetLastError());
+        return NULL;
+    }
+
+    http = WinHttpConnect(http, JRE_LATEST_MSI_HOST, INTERNET_DEFAULT_HTTPS_PORT, (DWORD) 0);
+    if (http == NULL) {
+        fprintf(stderr, "Error %lu in WinHttpConnect\n", GetLastError());
+        return NULL;
+    }
+
+    LPCWSTR accepts[2] = { JRE_LATEST_MSI_MIME, NULL };
+    http = WinHttpOpenRequest(http, L"GET", JRE_LATEST_MSI_OBJECT, NULL, WINHTTP_NO_REFERER, accepts, WINHTTP_FLAG_SECURE);
+    if (http == NULL) {
+        fprintf(stderr, "Error %lu in WinHttpOpenRequest\n", GetLastError());
+        return NULL;
+    }
+
+    if (!WinHttpSendRequest(http, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
+        WinHttpCloseHandle(http);
+        fprintf(stderr, "Error %lu in WinHttpSendRequest\n", GetLastError());
+        return NULL;
+    }
+
+    if (!WinHttpReceiveResponse(http, NULL)) {
+        WinHttpCloseHandle(http);
+        fprintf(stderr, "Error %lu in WinHttpReceiveResponse\n", GetLastError());
+        return NULL;
+    }
+    return http;
+}
+
+bool jre_pipe_inet2fp_win32(HINTERNET inet, FILE* fp) {
+    const DWORD buf_size = 8192;
+    void* buf = malloc(buf_size);
+    if (buf == NULL) {
+        fprintf(stderr, "Out of memory (allocating buffer with capacity %lu)\n", buf_size);
+        exit(1);
+    }
+
+    DWORD shovel;
+    DWORD downloaded;
+    do {
+        shovel = 0;
+        if (!WinHttpQueryDataAvailable(inet, &shovel)) {
+            fprintf(stderr, "Error %lu in WinHttpQueryDataAvailable\n", GetLastError());
+            free(buf);
+            return false;
+        }
+        if (shovel > buf_size) shovel = buf_size;
+
+        if (!WinHttpReadData(inet, buf, shovel, &downloaded)) {
+            fprintf(stderr, "Error %lu in WinHttpReadData\n", GetLastError());
+            free(buf);
+            return false;
+        }
+        fwrite(buf, 1, (size_t) downloaded, fp);
+    } while (shovel > 0);
+
+    free(buf);
+    return true;
+}
+#endif
+
+bool jre_attempt_automated_install(unsigned int min) {
+    bool ret = false;
+    if (min > 21) return ret;
+    if (sizeof(void*) != 8) return ret;
+#ifdef WIN32
+    const char* appDir = io_get_app_dir();
+    if (appDir == NULL) {
+        fprintf(stderr, "Cannot create app dir, automated install aborted\n");
+        return false;
+    }
+    const char* dest = path_join(appDir, "install_jre.msi");
+    free((void*) appDir);
+
+    FILE* dh = fopen(dest, "w+b");
+    if (dh == NULL) {
+        perror("Failed to open file for writing");
+        free((void*) dest);
+        return false;
+    }
+
+    HINTERNET http = jre_open_msi_download_win32();
+    if (http == NULL) {
+        fclose(dh);
+        free((void*) dest);
+        return false;
+    }
+
+    printf("Downloading Java installer...\n");
+    bool piped = jre_pipe_inet2fp_win32(http, dh);
+    WinHttpCloseHandle(http);
+    fclose(dh);
+    if (!piped) {
+        free((void *) dest);
+        return false;
+    }
+
+    io_path_to_short_name_win32((char**) &dest);
+    printf("Launching installer (%s)\n", dest);
+    int out = system(dest);
+
+    switch (out) { // NOLINT(hicpp-multiway-paths-covered)
+        case 0:
+            printf("Install successful\n");
+            ret = true;
+            break;
+        case 1602:
+            printf("Install cancelled by user\n");
+            ret = true;
+            break;
+        case 1603:
+            printf("Fatal error during install\n");
+    }
+
+    remove(dest);
+    free((void *) dest);
+#endif
+    return ret;
+}
