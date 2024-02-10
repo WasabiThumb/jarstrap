@@ -60,7 +60,6 @@ char* jre_locate_at_least000(char* head, int depth) {
 
         const char* sub;
         while ((sub = io_dir_read_directory(dir)) != NULL) {
-            printf("sub sub: %s\n", sub);
             ret = jre_locate_at_least000((char*) path_join(head, sub), depth);
             if (ret != NULL) {
                 io_dir_close(dir);

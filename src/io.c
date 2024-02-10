@@ -67,15 +67,19 @@ const char* io_dir_read_win32(volatile io_dir dir, DWORD attr) {
     return NULL;
 }
 #endif
+#ifdef __linux
+const char* io_dir_read_unix(io_dir dir, unsigned char type) {
+    struct dirent* ent;
+    while ((ent = readdir((DIR*) dir)) != NULL) {
+        if (ent->d_type == type || ent->d_type == DT_UNKNOWN) return ent->d_name;
+    }
+    return NULL;
+}
+#endif
 
 const char* io_dir_read_directory(io_dir dir) {
 #ifdef __linux
-    struct dirent* ent;
-    while ((ent = readdir((DIR*) dir)) != NULL) {
-        ent->d_ino
-        if (ent->d_type == DT_DIR || ent->d_type == DT_UNKNOWN) return ent->d_name;
-    }
-    return NULL;
+    return io_dir_read_unix(dir, DT_DIR);
 #endif
 #ifdef WIN32
     return io_dir_read_win32(dir, FILE_ATTRIBUTE_DIRECTORY);
@@ -84,11 +88,7 @@ const char* io_dir_read_directory(io_dir dir) {
 
 const char* io_dir_read_file(io_dir dir) {
 #ifdef __linux
-    struct dirent* ent;
-    while ((ent = readdir((DIR*) dir)) != NULL) {
-        if (ent->d_type == DT_REG || ent->d_type == DT_UNKNOWN) return ent->d_name;
-    }
-    return NULL;
+    return io_dir_read_unix(dir, DT_REG);
 #endif
 #ifdef WIN32
     return io_dir_read_win32(dir, FILE_ATTRIBUTE_NORMAL);
