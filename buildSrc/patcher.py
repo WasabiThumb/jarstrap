@@ -104,11 +104,14 @@ class ConfigSourcePatcher(SourcePatcher):
         return f"static const {line_type} {line_name} = {v};\n"
 
 
+# Archive patching is now handled by CMake
 class ArchiveSourcePatcher(SourcePatcher):
     archive: BinaryIO
 
     def __init__(self, file: str, archive: str):
         super().__init__(file)
+        from warnings import warn
+        warn("ArchiveSourcePatcher is deprecated")
         self.archive = open(archive, 'rb')
 
     def is_activator_line(self, line: str) -> bool:

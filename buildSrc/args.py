@@ -14,6 +14,7 @@ class Args:
     preferred_java_ver: int = 17
     launch_flags: str = ""
     debug: bool = False
+    build_i386: bool = True
 
     def load_defaults(self, code_file):
         in_cfg = False
@@ -77,6 +78,7 @@ class Args:
         print(f"[4] Preferred Java Version ({self.preferred_java_ver})")
         print(f"[5] Launch Flags ({'None' if len(self.launch_flags) < 1 else self.launch_flags})")
         print(f"[6] Debug ({'true' if self.debug else 'false'})")
+        print(f"[7] Build 32-Bit ({'true' if self.build_i386 else 'false'})")
         print("[b] Build")
         print("[x] Exit")
         print()
@@ -107,6 +109,9 @@ class Args:
             case 6:
                 self.debug = value.lower() in ['true', '1', 't', 'y']
                 print(f"Debug set to {self.debug}")
+            case 7:
+                self.build_i386 = value.lower() in ['true', '1', 't', 'y']
+                print(f"Build 32-Bit set to {self.build_i386}")
             case _:
                 print("Unknown option code (must be 1-6)")
 
