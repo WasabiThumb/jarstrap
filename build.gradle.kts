@@ -12,6 +12,11 @@ repositories {
 }
 
 dependencies {
+	implementation("io.github.wasabithumb:josdirs-core:0.1.0")
+	implementation("io.github.wasabithumb:josdirs-platform-windows:0.1.0")
+	implementation("io.github.wasabithumb:josdirs-platform-unix:0.1.0")
+	compileOnly("org.jetbrains:annotations:26.0.1")
+
 	testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
@@ -36,4 +41,10 @@ tasks.compileJava {
 tasks.javadoc {
 	(options as CoreJavadocOptions)
 		.addBooleanOption("Xdoclint:none", true)
+}
+
+tasks.processResources {
+	// Add the "tool" filesystem to resources
+	from("$rootDir")
+		.include("tool", "tool/*", "tool/**/*")
 }
