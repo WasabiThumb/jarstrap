@@ -44,6 +44,7 @@ public class Packager implements AutoCloseable {
     private File source = null;
     private File outputDir = null;
     private String outputName = null;
+    private boolean autoInstall = false;
 
     public Packager(@NotNull File workingDir, @NotNull Logger logger) {
         this.workingDir = workingDir;
@@ -270,6 +271,24 @@ public class Packager implements AutoCloseable {
         final long stamp = this.attrLock.writeLock();
         try {
             this.outputName = outputName;
+        } finally {
+            this.attrLock.unlock(stamp);
+        }
+    }
+
+    public boolean isAutoInstall() {
+        final long stamp = this.attrLock.readLock();
+        try {
+            return this.autoInstall;
+        } finally {
+            this.attrLock.unlock(stamp);
+        }
+    }
+
+    public void setAutoInstall(boolean autoInstall) {
+        final long stamp = this.attrLock.writeLock();
+        try {
+            this.autoInstall = autoInstall;
         } finally {
             this.attrLock.unlock(stamp);
         }

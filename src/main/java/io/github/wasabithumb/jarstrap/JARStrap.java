@@ -12,11 +12,20 @@ import java.util.logging.Logger;
 
 public final class JARStrap {
 
+    /**
+     * Creates a new packager instance. Each packager has exclusive access to its resources and is thread safe.
+     * @param logger The logger for the packager to use
+     * @see #createPackager() 
+     */
     @Contract("_ -> new")
     public static @NotNull Packager createPackager(@NotNull Logger logger) {
         return new Packager(nextInstanceDir(), logger);
     }
 
+    /**
+     * Creates a new packager instance with an anonymous logger of level {@link Level#WARNING}
+     * @see #createPackager(Logger)
+     */
     @Contract(" -> new")
     public static @NotNull Packager createPackager() {
         Logger logger = Logger.getAnonymousLogger();
