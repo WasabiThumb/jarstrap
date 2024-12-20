@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.logging.ConsoleHandler;
-import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -25,8 +24,8 @@ class JARStrapTest {
         File output;
         try (Packager p = JARStrap.createPackager(logger)) {
             p.setAppName("Sample App");
-            assertEquals(p.getOutputName(), "sample_app");
-            assertEquals(p.getSource().getName(), "sample.jar");
+            assertEquals("sample_app", p.getOutputName());
+            assertEquals("sample.jar", p.getSource().getName());
             output = p.getOutputFile();
             p.execute();
         }
