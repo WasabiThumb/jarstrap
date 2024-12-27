@@ -1,11 +1,13 @@
 package io.github.wasabithumb.jarstrap.util.io;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 
+@ApiStatus.Internal
 public final class StreamUtil {
 
     @Contract("_, null -> param1; _, !null -> new")

@@ -25,6 +25,22 @@ import java.util.concurrent.locks.StampedLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * <p>
+ *     A {@link io.github.wasabithumb.jarstrap.JARStrap JARStrap} packager. Each packager owns its own working directory
+ *     that is cleared when {@link #close()} is called. The packager will execute the required stages in turn.
+ * </p>
+ * <p>
+ *     Each packager is comprised of {@link PackagerStage stages}. Every stage must execute in turn in order to produce
+ *     a valid artifact. For a simple way to do this, use {@link #execute()}.
+ * </p>
+ * <p>
+ *     The final executable will be copied to the {@link #setOutputDir(File) output directory} with the given
+ *     {@link #setOutputName(String) output name}.
+ *     This file can be accessed at {@link #getOutputFile()} and will have the appropriate
+ *     {@link #getExtension() extension} for the current platform.
+ * </p>
+ */
 public class Packager implements AutoCloseable {
 
     public static final String DEFAULT_INSTALL_PROMPT = "This application requires Java %d or greater, which could not be found. Install now? The download may take a few moments.";
@@ -71,14 +87,24 @@ public class Packager implements AutoCloseable {
         stages.add(new PackagerExportStage());
     }
 
+    /**
+     * @return The temporary working directory for this packager
+     */
     public @NotNull File getWorkingDir() {
         return this.workingDir;
     }
 
+    /**
+     * The file that will receive the executable during the last stage
+     */
     public @NotNull File getOutputFile() {
         return new File(this.getOutputDir(), this.getOutputName() + this.getExtension());
     }
 
+    /**
+     * The file extension for executables, determined by the current platform.
+     * {@code .exe} for Windows, {@code (empty string)} for UNIX.
+     */
     public @NotNull String getExtension() {
         if (JOSDirs.platform().equals("windows")) {
             return ".exe";
@@ -86,12 +112,18 @@ public class Packager implements AutoCloseable {
         return "";
     }
 
+    /**
+     * The logger used by this packager
+     */
     public @NotNull Logger logger() {
         return this.logger;
     }
 
     //
 
+    /**
+     * The architecture to build for, {@link PackagerArch#X86_64 X86_64} by default.
+     */
     public @NotNull PackagerArch getArch() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -101,6 +133,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #getArch()
+     */
     public void setArch(@NotNull PackagerArch arch) {
         final long stamp = this.attrLock.writeLock();
         try {
@@ -110,6 +145,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * True if building a release binary (smaller size, less output, hard to debug the bootstrap)
+     */
     public boolean isRelease() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -119,6 +157,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #isRelease()
+     */
     public void setRelease(boolean release) {
         final long stamp = this.attrLock.writeLock();
         try {
@@ -128,6 +169,10 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * The app name, or {@code JARStrap} if none set. When the app name is equal to {@code JARStrap}
+     * (via hash comparison), no app name is reported on startup.
+     */
     public @NotNull String getAppName() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -138,6 +183,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #getAppName()
+     */
     public void setAppName(@Nullable String appName) {
         final long stamp = this.attrLock.writeLock();
         try {
@@ -147,6 +195,10 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * The minimum Java version; the {@link #getPreferredJavaVersion() preferred Java version} will be
+     * installed if no Java on the system is at least this version
+     */
     public int getMinJavaVersion() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -156,6 +208,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #getMinJavaVersion()
+     */
     public void setMinJavaVersion(@Range(from = 5L, to = 21L) int minJavaVersion) {
         //noinspection ConstantValue
         if (minJavaVersion < 5 || minJavaVersion > 21)
@@ -169,6 +224,10 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * The preferred Java version; installed when the {@link #getMinJavaVersion() minimum Java version} is not present
+     * on the system.
+     */
     public int getPreferredJavaVersion() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -178,6 +237,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #getPreferredJavaVersion()
+     */
     public void setPreferredJavaVersion(@Range(from = 5L, to = 21L) int preferredJavaVersion) {
         //noinspection ConstantValue
         if (preferredJavaVersion < 5 || preferredJavaVersion > 21)
@@ -191,6 +253,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * Additional flags to set when launching the JAR, placed after the {@code -jar} switch.
+     */
     public @NotNull String getLaunchFlags() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -200,6 +265,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #getLaunchFlags()
+     */
     public void setLaunchFlags(@NotNull String flags) {
         final long stamp = this.attrLock.writeLock();
         try {
@@ -209,6 +277,16 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * <p>
+     *     The prompt to show when the user must install Java to proceed. The {@code %d} template can be used up to 1
+     *     time and will be replaced with the target Java version. To write a literal percent char,
+     *     instead write {@code %%}.
+     * </p>
+     * <p>
+     *     The default prompt can be found at {@link #DEFAULT_INSTALL_PROMPT}.
+     * </p>
+     */
     public @NotNull String getInstallPrompt() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -218,6 +296,11 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #getInstallPrompt()
+     * @throws IllegalArgumentException The given prompt has more than one occurrence of {@code %d}, or has a {@code %}
+     * followed by the end of the string or a char that is not {@code %} or {@code d}.
+     */
     public void setInstallPrompt(@Nullable String prompt) throws IllegalArgumentException {
         if (prompt == null) {
             prompt = "";
@@ -247,6 +330,10 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * The JAR file to wrap into an executable. If none is set, a sample JAR included with JARStrap is used. This
+     * sample program is a Java 5 stub which reports the JRE version in use; e.g. {@code Hello from Java 21.0.3+9}.
+     */
     public @NotNull File getSource() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -257,6 +344,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #getSource()
+     */
     public void setSource(@Nullable File source) {
         final long stamp = this.attrLock.writeLock();
         try {
@@ -266,6 +356,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * The directory to copy the final executable into. If not set, returns the current working directory.
+     */
     public @NotNull File getOutputDir() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -277,6 +370,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #getOutputDir()
+     */
     public void setOutputDir(@Nullable File outputDir) {
         final long stamp = this.attrLock.writeLock();
         try {
@@ -286,6 +382,11 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * The name to use for the final executable. If not set, this returns a variation of the
+     * {@link #getAppName() app name}. Specifically, it will be a lowercase version with all whitespace
+     * replaced with {@code _}.
+     */
     public @NotNull String getOutputName() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -310,6 +411,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #getOutputName()
+     */
     public void setOutputName(@Nullable String outputName) {
         final long stamp = this.attrLock.writeLock();
         try {
@@ -319,6 +423,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * If true, certain build components may be auto-installed. Currently only used for MinGW on Windows hosts.
+     */
     public boolean isAutoInstall() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -328,6 +435,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #isAutoInstall()
+     */
     public void setAutoInstall(boolean autoInstall) {
         final long stamp = this.attrLock.writeLock();
         try {
@@ -337,6 +447,10 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * If true, the command-line output of the application will include info about JARStrap. If attribution is disabled,
+     * the application distributor should propagate the license information in another way.
+     */
     public boolean isAttributionEnabled() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -346,6 +460,9 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    /**
+     * @see #isAttributionEnabled()
+     */
     public void setAttributionEnabled(boolean attributionEnabled) {
         final long stamp = this.attrLock.writeLock();
         try {
