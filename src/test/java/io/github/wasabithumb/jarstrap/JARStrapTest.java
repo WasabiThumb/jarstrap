@@ -24,6 +24,7 @@ class JARStrapTest {
         File output;
         try (Packager p = JARStrap.createPackager(logger)) {
             p.setAppName("Sample App");
+            p.setAutoInstall(true);
             assertEquals("sample_app", p.getOutputName());
             assertEquals("sample.jar", p.getSource().getName());
             output = p.getOutputFile();

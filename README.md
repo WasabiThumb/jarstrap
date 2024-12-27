@@ -1,15 +1,67 @@
 # JarStrap
-A Java Archive to executable tool (JAR -> EXE)
-for Windows & Linux ``x86/64``.
+A Java Archive to executable tool (JAR to EXE / JAR to ELF)
+for Windows & Linux ``x86/64``. Made in Java 17 with support for Java 5+ binaries. Requires some
+[common dependencies for building the C stub](#dependencies). **This was previously a Python
+project! For the old code, go [here](https://github.com/WasabiThumb/jarstrap/tree/python).**
 
 ## Features
 - Fast to build & run
 - Attempts to find or install a suitable Java version at runtime
   - Installs OpenJDK
-- Recognizes Java 5+ and supports Java 8+
 - Adds command-line QoL
-  - Colors (pretty!)
   - Negotiates color support in unfriendly terminals
-    - Can reliably use ANSI sequences in your Java application
-      (see [JANSI](https://github.com/fusesource/jansi), ``systemInstall`` will not be required)
   - Sets the terminal title to the name of the app
+
+## API
+The entry point of this package is ``JARStrap.createPackager()``.
+To build an executable, set the desired options on the ``Packager`` and then use ``execute()`` to run all the
+stages in turn.
+
+```java
+File out;
+try (Packager p = JARStrap.createPackager()) {
+    p.setAppName("Your Awesome App");
+    p.setSource(new File("your_awesome_app.jar"));
+    p.setMinJavaVersion(8);
+    p.setPreferredJavaVersion(21);
+    p.setRelease(true);
+    p.execute();
+    out = p.getOutputFile();
+}
+```
+
+## Dependencies
+### Linux Host
+- CMake
+  - **Debian/Ubuntu**: ``sudo apt install cmake``
+  - **Arch**: ``sudo pacman -S cmake``
+- GNU Make
+  - **Debian/Ubuntu**: ``sudo apt install build-essential``
+  - **Arch**: ``sudo pacman -S base-devel``
+
+### Windows Host
+- CMake
+  - **MSI**: https://cmake.org/download/
+  - **Chocolatey**: ``choco install cmake``
+- MinGW
+  - **Automatic**: Use ``setAutoInstall(true)`` on the ``Packager`` to install MinGW to a known location. You should not
+    set it back to ``false`` after this point.
+  - **Chocolatey**: ``choco install mingw``
+    - ⚠️ Seems to break for building 32-bit apps on 64-bit hosts
+  
+## License
+```text
+Copyright 2024 Wasabi Codes
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
