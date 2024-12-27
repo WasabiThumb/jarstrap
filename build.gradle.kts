@@ -20,10 +20,6 @@ dependencies {
 	// Source Dependencies
 	compileOnly("org.jetbrains:annotations:26.0.1")
 
-	// Dynamic Dependencies (might be fetched at runtime)
-	// compileOnly("org.tukaani:xz:1.10")
-	// compileOnly("org.apache.commons:commons-compress:1.27.1")
-
 	testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
