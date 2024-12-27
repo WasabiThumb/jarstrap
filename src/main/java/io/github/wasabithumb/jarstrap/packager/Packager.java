@@ -27,6 +27,8 @@ import java.util.logging.Logger;
 
 public class Packager implements AutoCloseable {
 
+    public static final String DEFAULT_INSTALL_PROMPT = "This application requires Java %d or greater, which could not be found. Install now? The download may take a few moments.";
+
     private final File workingDir;
     private final Queue<PackagerStage> stages;
     private final StampedLock stageLock;
@@ -41,10 +43,12 @@ public class Packager implements AutoCloseable {
     private int minJavaVersion = 8;
     private int preferredJavaVersion = 21;
     private String launchFlags = "";
+    private String installPrompt = DEFAULT_INSTALL_PROMPT;
     private File source = null;
     private File outputDir = null;
     private String outputName = null;
     private boolean autoInstall = false;
+    private boolean attributionEnabled = true;
 
     public Packager(@NotNull File workingDir, @NotNull Logger logger) {
         this.workingDir = workingDir;
@@ -60,6 +64,7 @@ public class Packager implements AutoCloseable {
     protected void setupStages(@NotNull Queue<PackagerStage> stages) {
         stages.add(new PackagerInitStage());
         stages.add(new PackagerInjectStage());
+        stages.add(new PackagerVarsStage());
         if (JOSDirs.platform().equals("windows")) stages.add(new PackagerMinGWStage());
         stages.add(new PackagerCmakeStage());
         stages.add(new PackagerMakeStage());
@@ -204,6 +209,44 @@ public class Packager implements AutoCloseable {
         }
     }
 
+    public @NotNull String getInstallPrompt() {
+        final long stamp = this.attrLock.readLock();
+        try {
+            return this.installPrompt;
+        } finally {
+            this.attrLock.unlock(stamp);
+        }
+    }
+
+    public void setInstallPrompt(@Nullable String prompt) throws IllegalArgumentException {
+        if (prompt == null) {
+            prompt = "";
+        } else {
+            int len = prompt.length();
+            int counter = 0;
+            char c;
+            for (int i=0; i < len; i++) {
+                c = prompt.charAt(i);
+                if (c != '%') continue;
+                if (i == (len - 1))
+                    throw new IllegalArgumentException("Starting escape '%' may not be last char in string");
+                c = prompt.charAt(++i);
+                if (c == '%') continue;
+                if (c != 'd')
+                    throw new IllegalArgumentException("Escape char '%' must be followed by '%' or 'd'");
+                if (counter++ != 0)
+                    throw new IllegalArgumentException("String may only have up to 1 \"%d\" template symbol");
+            }
+        }
+
+        final long stamp = this.attrLock.writeLock();
+        try {
+            this.installPrompt = prompt;
+        } finally {
+            this.attrLock.unlock(stamp);
+        }
+    }
+
     public @NotNull File getSource() {
         final long stamp = this.attrLock.readLock();
         try {
@@ -289,6 +332,24 @@ public class Packager implements AutoCloseable {
         final long stamp = this.attrLock.writeLock();
         try {
             this.autoInstall = autoInstall;
+        } finally {
+            this.attrLock.unlock(stamp);
+        }
+    }
+
+    public boolean isAttributionEnabled() {
+        final long stamp = this.attrLock.readLock();
+        try {
+            return this.attributionEnabled;
+        } finally {
+            this.attrLock.unlock(stamp);
+        }
+    }
+
+    public void setAttributionEnabled(boolean attributionEnabled) {
+        final long stamp = this.attrLock.writeLock();
+        try {
+            this.attributionEnabled = attributionEnabled;
         } finally {
             this.attrLock.unlock(stamp);
         }
