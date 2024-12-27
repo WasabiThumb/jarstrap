@@ -16,8 +16,9 @@
 static const char APP_NAME[] = "JARStrap";
 static const unsigned int MIN_JAVA_VERSION = 8;
 static const unsigned int PREFERRED_JAVA_VERSION = 17;
-static const char INSTALL_PROMPT[] = "This application requires Java %d or greater, which could not be found. Install now? The download may take a few moments.";
+static const char INSTALL_PROMPT[] = "";
 static const char LAUNCH_FLAGS[] = "";
+static const bool ATTRIBUTION = true;
 // CONFIG END
 
 static const char RUN_DELIMITER[] = "@==============@";
@@ -38,14 +39,21 @@ static const char START_FMT[] = "\"%s\" -jar \"%s\" %s";
 
 
 void startup() {
-    bool nameGiven = util_fast_hash((const unsigned char*) APP_NAME, sizeof(APP_NAME)) != -1640289140; // Check if app name is not JARStrap
+    if (ATTRIBUTION) {
+        // Check if app name is not JARStrap
+        bool nameGiven = util_fast_hash((const unsigned char*) APP_NAME, sizeof(APP_NAME)) != -1640289140;
 
-    printf(BLK CYNB " JARStrap %s (%d-bit) " CRESET "\n", version_get(), (int) (sizeof(void*) << 3));
-    printf(CYN "A Java Archive to executable tool\n" CRESET);
-    printf(BCYN "(c)" CYN " Wasabi Codes %s\n" CRESET, version_get_copyright_year());
-    printf(CYN "https://wasabithumb.github.io/\n\n" CRESET);
+        printf(BLK CYNB " JARStrap %s (%d-bit) " CRESET "\n", version_get(), (int) (sizeof(void*) << 3));
+        printf(CYN "A Java Archive to executable tool\n" CRESET);
+        printf(BCYN "(c)" CYN " Wasabi Codes %s\n" CRESET, version_get_copyright_year());
+        printf(CYN "https://wasabithumb.github.io/\n\n" CRESET);
 
-    if (nameGiven) printf("Application Name :: %s\n", APP_NAME);
+        if (nameGiven) printf("Application Name :: %s\n", APP_NAME);
+#ifdef NDEBUG
+        printf("\n");
+#endif
+    }
+
     printf_dbg("Minimum Java Version :: %d\n", MIN_JAVA_VERSION);
     printf_dbg("Preferred Java Version :: %d\n\n", PREFERRED_JAVA_VERSION);
 }
