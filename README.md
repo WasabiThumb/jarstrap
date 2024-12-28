@@ -15,7 +15,7 @@ project! For the old code, go [here](https://github.com/WasabiThumb/jarstrap/tre
 ## API
 The entry point of this package is ``JARStrap.createPackager()``.
 To build an executable, set the desired options on the ``Packager`` and then use ``execute()`` to run all the
-stages in turn.
+[stages](#stages) in turn.
 
 ```java
 File out;
@@ -29,6 +29,22 @@ try (Packager p = JARStrap.createPackager()) {
     out = p.getOutputFile();
 }
 ```
+
+## Stages
+- ``init``
+  - Populates the working directory
+- ``inject``
+  - Creates a symlink or copy of the source JAR, to be read by the make process
+- ``vars``
+  - Updates constants in ``main.c`` to reflect the packager's configuration
+- ``mingw`` (Windows)
+  - Locates or installs the MinGW toolchain
+- ``cmake``
+  - Uses CMake to generate a Makefile
+- ``make``
+  - Uses Make (GNU Make or MinGW Make) to build the Makefile
+- ``export``
+  - Copies the built executable to the configured output location
 
 ## Dependencies
 ### Linux Host
