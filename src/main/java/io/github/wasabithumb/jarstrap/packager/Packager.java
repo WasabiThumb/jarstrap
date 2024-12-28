@@ -1,5 +1,6 @@
 package io.github.wasabithumb.jarstrap.packager;
 
+import io.github.wasabithumb.jarstrap.manifest.ManifestMutator;
 import io.github.wasabithumb.jarstrap.packager.error.PackagerException;
 import io.github.wasabithumb.jarstrap.packager.error.PackagerIOException;
 import io.github.wasabithumb.jarstrap.packager.stage.PackagerStage;
@@ -22,6 +23,7 @@ import java.util.Queue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.StampedLock;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -52,6 +54,7 @@ public class Packager implements AutoCloseable {
     private final StampedLock attrLock;
     private final Logger logger;
     private final PackagerState state;
+    private final ManifestMutator manifest;
 
     private PackagerArch arch = PackagerArch.X86_64;
     private boolean release = false;
@@ -75,12 +78,13 @@ public class Packager implements AutoCloseable {
         this.attrLock = new StampedLock();
         this.logger = logger;
         this.state = new PackagerState();
+        this.manifest = new ManifestMutator();
     }
 
     protected void setupStages(@NotNull Queue<PackagerStage> stages) {
         stages.add(new PackagerInitStage());
         stages.add(new PackagerInjectStage());
-        stages.add(new PackagerInferStage());
+        stages.add(new PackagerManifestStage());
         stages.add(new PackagerVarsStage());
         if (JOSDirs.platform().equals("windows")) stages.add(new PackagerMinGWStage());
         stages.add(new PackagerCmakeStage());
@@ -471,6 +475,23 @@ public class Packager implements AutoCloseable {
         } finally {
             this.attrLock.unlock(stamp);
         }
+    }
+
+    /**
+     * Returns an object that can be used to add/remove manifest entries to the source JAR before bootstrapping.
+     * @since 0.1.1
+     */
+    public @NotNull ManifestMutator getManifest() {
+        return this.manifest;
+    }
+
+    /**
+     * Configures the manifest mutator. Alias for {@code arg1.accept(getManifest())}.
+     * @since 0.1.1
+     * @see #getManifest()
+     */
+    public void manifest(@NotNull Consumer<ManifestMutator> configure) {
+        configure.accept(this.manifest);
     }
 
     /**
