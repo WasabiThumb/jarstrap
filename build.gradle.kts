@@ -1,11 +1,14 @@
 
 plugins {
 	id("java-library")
+	id("maven-publish")
+	id("signing")
+	id("net.thebugmc.gradle.sonatype-central-portal-publisher") version "1.2.4"
 }
 
 group = "io.github.wasabithumb"
 version = "0.1.0"
-description = "A tool to create native executables from a runnable JAR"
+description = "Tool to create native executables from a runnable JAR"
 
 repositories {
 	mavenCentral()
@@ -21,11 +24,11 @@ dependencies {
 	compileOnly("org.jetbrains:annotations:26.0.1")
 
 	testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.test {
-    useJUnitPlatform()
+	useJUnitPlatform()
 }
 
 java {
@@ -50,4 +53,35 @@ tasks.processResources {
 	// Add the "tool" filesystem to resources
 	from("$rootDir")
 		.include("tool", "tool/*", "tool/**/*")
+}
+
+centralPortal {
+	name = rootProject.name
+	jarTask = tasks.jar
+	sourcesJarTask = tasks.sourcesJar
+	javadocJarTask = tasks.javadocJar
+	pom {
+		name = "JARStrap"
+		description = project.description
+		url = "https://github.com/WasabiThumb/jarstrap"
+		licenses {
+			license {
+				name = "The Apache License, Version 2.0"
+				url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+			}
+		}
+		developers {
+			developer {
+				id = "wasabithumb"
+				email = "wasabithumbs@gmail.com"
+				organization = "Wasabi Codes"
+				organizationUrl = "https://wasabithumb.github.io/"
+				timezone = "-5"
+			}
+		}
+		scm {
+			connection = "scm:git:git://github.com/WasabiThumb/jarstrap.git"
+			url = "https://github.com/WasabiThumb/jarstrap"
+		}
+	}
 }
