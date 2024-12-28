@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "io.github.wasabithumb"
-version = "0.1.0"
+version = "0.2.0"
 description = "Tool to create native executables from a runnable JAR"
 
 repositories {

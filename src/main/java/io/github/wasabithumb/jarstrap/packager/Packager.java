@@ -479,7 +479,7 @@ public class Packager implements AutoCloseable {
 
     /**
      * Returns an object that can be used to add/remove manifest entries to the source JAR before bootstrapping.
-     * @since 0.1.1
+     * @since 0.2.0
      */
     public @NotNull ManifestMutator getManifest() {
         return this.manifest;
@@ -487,7 +487,7 @@ public class Packager implements AutoCloseable {
 
     /**
      * Configures the manifest mutator. Alias for {@code arg1.accept(getManifest())}.
-     * @since 0.1.1
+     * @since 0.2.0
      * @see #getManifest()
      */
     public void manifest(@NotNull Consumer<ManifestMutator> configure) {

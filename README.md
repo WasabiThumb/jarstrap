@@ -12,6 +12,33 @@ project! For the old code, go [here](https://github.com/WasabiThumb/jarstrap/tre
   - Negotiates color support in unfriendly terminals
   - Sets the terminal title to the name of the app
 
+## Using
+### Gradle (Kotlin)
+```kotlin
+dependencies {
+    implementation("io.github.wasabithumb:jarstrap:0.2.0")
+}
+```
+
+### Gradle (Groovy)
+```groovy
+dependencies {
+    implementation 'io.github.wasabithumb:jarstrap:0.2.0'
+}
+```
+
+### Maven
+```xml
+<dependencies>
+  <dependency>
+    <groupId>io.github.wasabithumb</groupId>
+    <artifactId>jarstrap</artifactId>
+    <version>0.2.0</version>
+    <scope>compile</scope>
+  </dependency>
+</dependencies>
+```
+
 ## API
 The entry point of this package is ``JARStrap.createPackager()``.
 To build an executable, set the desired options on the ``Packager`` and then use ``execute()`` to run all the
