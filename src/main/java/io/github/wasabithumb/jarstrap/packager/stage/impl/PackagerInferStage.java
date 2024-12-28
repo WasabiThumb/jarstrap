@@ -76,6 +76,8 @@ public class PackagerInferStage implements PackagerStage {
 
                 dis.skipNBytes(Short.BYTES);
                 return dis.readShort();
+            } catch (EOFException e) {
+                throw new PackagerIOException("Main class of JAR (" + mainClass + ") has been truncated", e);
             }
         }
     }
