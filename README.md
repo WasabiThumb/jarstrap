@@ -35,6 +35,8 @@ try (Packager p = JARStrap.createPackager()) {
   - Populates the working directory
 - ``inject``
   - Creates a symlink or copy of the source JAR, to be read by the make process
+- ``infer``
+  - Reads the source JAR to ensure that it is runnable and to read the [major version](https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.1-200-B.2) of the main class
 - ``vars``
   - Updates constants in ``main.c`` to reflect the packager's configuration
 - ``mingw`` (Windows)

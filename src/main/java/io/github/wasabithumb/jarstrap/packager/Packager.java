@@ -80,6 +80,7 @@ public class Packager implements AutoCloseable {
     protected void setupStages(@NotNull Queue<PackagerStage> stages) {
         stages.add(new PackagerInitStage());
         stages.add(new PackagerInjectStage());
+        stages.add(new PackagerInferStage());
         stages.add(new PackagerVarsStage());
         if (JOSDirs.platform().equals("windows")) stages.add(new PackagerMinGWStage());
         stages.add(new PackagerCmakeStage());
