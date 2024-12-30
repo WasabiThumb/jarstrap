@@ -13,7 +13,7 @@
 
 // TYPES
 
-typedef enum debug_err_code: uint8_t {
+typedef enum debug_err_code {
     // Unknown error
     ERR_UNKNOWN,
     // Out of memory
